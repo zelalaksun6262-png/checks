@@ -1,73 +1,152 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Simple Embed Cart</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Sheet Cart</title>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
+    
     <style>
-        body { font-family: sans-serif; display: flex; }
-        #product-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; width: 70%; }
-        .product-card { border: 1px solid #ddd; padding: 15px; border-radius: 8px; }
-        #cart { width: 30%; border-left: 2px solid #eee; padding-left: 20px; }
-        .buy-btn { background: #28a745; color: white; border: none; padding: 8px; cursor: pointer; }
+        :root {
+            --primary: #28a745;
+            --danger: #dc3545;
+            --gray: #f4f4f4;
+        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; display: flex; height: 100vh; }
+        
+        /* Product Section */
+        #product-container { width: 70%; padding: 20px; overflow-y: auto; }
+        #product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+        
+        .product-card { border: 1px solid #ddd; padding: 15px; border-radius: 8px; text-align: center; transition: 0.3s; }
+        .product-card:hover { box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .product-card img { max-width: 100%; height: 150px; object-fit: cover; border-radius: 4px; }
+        
+        /* Cart Section */
+        #cart { width: 30%; background: var(--gray); border-left: 1px solid #ddd; padding: 20px; display: flex; flex-direction: column; }
+        .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #ccc; font-size: 0.9em; }
+        
+        /* Buttons */
+        .buy-btn { background: var(--primary); color: white; border: none; padding: 10px; width: 100%; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+        .remove-btn { background: none; border: none; color: var(--danger); cursor: pointer; font-weight: bold; font-size: 1.1em; }
+        .checkout-btn { background: #000; color: #fff; border: none; padding: 15px; width: 100%; border-radius: 4px; cursor: pointer; font-size: 1em; margin-top: auto; }
+        
+        .empty-msg { color: #888; font-style: italic; }
     </style>
 </head>
 <body>
 
-    <div id="product-grid">Loading products...</div>
+    <div id="product-container">
+        <h1>Shop</h1>
+        <div id="product-grid">Loading products from spreadsheet...</div>
+    </div>
 
     <div id="cart">
         <h2>Your Cart</h2>
-        <ul id="cart-items"></ul>
-        <p><strong>Total: $<span id="total">0</span></strong></p>
-        <button onclick="checkout()">Checkout</button>
+        <div id="cart-items">
+            <p class="empty-msg">Your cart is empty.</p>
+        </div>
+        <hr>
+        <p style="display: flex; justify-content: space-between; font-size: 1.2em;">
+            <strong>Total:</strong> 
+            <strong>$<span id="total">0.00</span></strong>
+        </p>
+        <button class="checkout-btn" onclick="checkout()">Checkout Now</button>
     </div>
 
     <script>
-        // PASTE YOUR PUBLISHED GOOGLE SHEET CSV LINK HERE
-        const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS5C3tusC6H_L6xEsPIYQddioP0wV8L7WkM_z9XLScpWIJ1EeYgZ950OwAoZUwM1sQFYDesOShYQ6z_/pub?gid=0&single=true&output=csv';
+        /**
+         * 1. CONFIGURATION
+         * Replace the link below with your "Published to Web" CSV link from Google Sheets
+         */
+        const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS5C3tusC6H_L6xEsPIYQddioP0wV8L7WkM_z9XLScpWIJ1EeYgZ950OwAoZUwM1sQFYDesOShYQ6z_/pub?output=csv'; 
+
         let cart = [];
 
-        async function init() {
+        // 2. FETCH DATA FROM SPREADSHEET
+        async function loadProducts() {
             Papa.parse(sheetUrl, {
                 download: true,
                 header: true,
                 complete: function(results) {
-                    renderProducts(results.data);
+                    displayProducts(results.data);
+                },
+                error: function(err) {
+                    document.getElementById('product-grid').innerHTML = "Error loading spreadsheet. Check your link!";
                 }
             });
         }
 
-        function renderProducts(products) {
+        // 3. RENDER PRODUCTS TO THE PAGE
+        function displayProducts(products) {
             const grid = document.getElementById('product-grid');
-            grid.innerHTML = products.map(p => `
+            if (products.length === 0) {
+                grid.innerHTML = "No products found.";
+                return;
+            }
+
+            grid.innerHTML = products.map(p => {
+                // Skip empty rows if any
+                if (!p.Name || !p.Price) return '';
+                
+                return `
                 <div class="product-card">
-                    <img src="${p.ImageURL}" width="100">
+                    <img src="${p.ImageURL || 'https://via.placeholder.com/150'}" alt="${p.Name}">
                     <h3>${p.Name}</h3>
-                    <p>${p.Description}</p>
-                    <p>$${p.Price}</p>
+                    <p style="color: #666; font-size: 0.85em;">${p.Description}</p>
+                    <p><strong>$${parseFloat(p.Price).toFixed(2)}</strong></p>
                     <button class="buy-btn" onclick="addToCart('${p.Name}', ${p.Price})">Add to Cart</button>
                 </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
+        // 4. CART ACTIONS
         function addToCart(name, price) {
-            cart.push({name, price});
+            cart.push({ name, price });
+            updateCartUI();
+        }
+
+        function removeFromCart(index) {
+            cart.splice(index, 1);
             updateCartUI();
         }
 
         function updateCartUI() {
             const list = document.getElementById('cart-items');
             const totalEl = document.getElementById('total');
-            list.innerHTML = cart.map(item => `<li>${item.name} - $${item.price}</li>`).join('');
+            
+            if (cart.length === 0) {
+                list.innerHTML = '<p class="empty-msg">Your cart is empty.</p>';
+                totalEl.innerText = "0.00";
+                return;
+            }
+
+            list.innerHTML = cart.map((item, index) => `
+                <div class="cart-item">
+                    <span>${item.name}</span>
+                    <span>
+                        $${parseFloat(item.price).toFixed(2)}
+                        <button class="remove-btn" onclick="removeFromCart(${index})" title="Remove"> &times; </button>
+                    </span>
+                </div>
+            `).join('');
+
             const total = cart.reduce((sum, item) => sum + parseFloat(item.price), 0);
             totalEl.innerText = total.toFixed(2);
         }
 
         function checkout() {
-            alert("This would typically redirect to Stripe or PayPal! Total: $" + document.getElementById('total').innerText);
+            if (cart.length === 0) {
+                alert("Your cart is empty!");
+                return;
+            }
+            const total = document.getElementById('total').innerText;
+            alert(`Proceeding to payment for $${total}. \n\nIntegration with Stripe/PayPal goes here!`);
         }
 
-        init();
+        // Start the app
+        loadProducts();
     </script>
 </body>
 </html>
