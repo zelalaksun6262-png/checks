@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Embed Cart</title>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
+    <style>
+        body { font-family: sans-serif; display: flex; }
+        #product-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; width: 70%; }
+        .product-card { border: 1px solid #ddd; padding: 15px; border-radius: 8px; }
+        #cart { width: 30%; border-left: 2px solid #eee; padding-left: 20px; }
+        .buy-btn { background: #28a745; color: white; border: none; padding: 8px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div id="product-grid">Loading products...</div>
+
+    <div id="cart">
+        <h2>Your Cart</h2>
+        <ul id="cart-items"></ul>
+        <p><strong>Total: $<span id="total">0</span></strong></p>
+        <button onclick="checkout()">Checkout</button>
+    </div>
+
+    <script>
+        // PASTE YOUR PUBLISHED GOOGLE SHEET CSV LINK HERE
+        const sheetUrl = 'YOUR_CSV_LINK_HERE';
+        let cart = [];
+
+        async function init() {
+            Papa.parse(sheetUrl, {
+                download: true,
+                header: true,
+                complete: function(results) {
+                    renderProducts(results.data);
+                }
+            });
+        }
+
+        function renderProducts(products) {
+            const grid = document.getElementById('product-grid');
+            grid.innerHTML = products.map(p => `
+                <div class="product-card">
+                    <img src="${p.ImageURL}" width="100">
+                    <h3>${p.Name}</h3>
+                    <p>${p.Description}</p>
+                    <p>$${p.Price}</p>
+                    <button class="buy-btn" onclick="addToCart('${p.Name}', ${p.Price})">Add to Cart</button>
+                </div>
+            `).join('');
+        }
+
+        function addToCart(name, price) {
+            cart.push({name, price});
+            updateCartUI();
+        }
+
+        function updateCartUI() {
+            const list = document.getElementById('cart-items');
+            const totalEl = document.getElementById('total');
+            list.innerHTML = cart.map(item => `<li>${item.name} - $${item.price}</li>`).join('');
+            const total = cart.reduce((sum, item) => sum + parseFloat(item.price), 0);
+            totalEl.innerText = total.toFixed(2);
+        }
+
+        function checkout() {
+            alert("This would typically redirect to Stripe or PayPal! Total: $" + document.getElementById('total').innerText);
+        }
+
+        init();
+    </script>
+</body>
+</html>
